@@ -10,7 +10,7 @@ import random
 from collections import deque
 
 # setting up environment
-env = gym.make('TetrisA-v0')
+env = gym.make('TetrisA-v3')
 
 # defining the deep QNet to be used in this model
 class DQN(nn.Module):
@@ -68,10 +68,55 @@ class DQNAgent:
             target_f =self.model(torch.FloatTensor(state))
             target_f[action] = target
             
-            self.optimizer.zerro_grad()
+            self.optimizer.zero_grad()
             loss = self.criterion(target_f, self.mode(torch.FloatTensor(state)))
             loss.backward()
             self.optimizer.step()
 
         if self.epsilon > epsilon_min:
             self.epsilon *= epsilon_decay
+
+# training the agent
+episodes = 1000
+agent = DQNAgent(env.observation_space.shape[0], env.action_space.n)
+
+for e in range(episodes):
+    state  = env.reset()
+    state  = np.array(state)
+    done = False
+    score = 0
+
+    while not done:
+        action = agent.act(state)
+        next_state, reward, done, _ = env.step(action)
+        next_state = np.array(next_state)
+        score += reward
+
+        agent.remember(state, action, reward, next_state, done)
+        state = next_state
+
+        if done:
+            print(f"Episode {e+1}/{episodes}, Score: {score}")
+        
+        agent.replay()
+
+# saving the model
+torch.save(agent.model.state_dict(), 'tetris_dqn.pth')
+
+# if retreive need
+agent.model.load_state_dict(torch.load('tetris_dqn.pth'))
+
+# # model evaluation
+# for e in range(10):
+#     state = env.reset()
+#     done = False
+#     score = 0
+
+#     while not done:
+#         env.render()
+#         action = agent.act(state)
+#         next_state, reward, done, _ = env.step(action)
+#         state = np.array(next_state)
+#         score += reward
+
+#     print(f"Test Episode {e+1}, Score: {score}")
